@@ -31,7 +31,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { english, isolate, phrase, type Say } from "@hanzo/i18n";
 import { useI18n } from "@hanzo/i18n/react";
-import { billed, detail, familyOf, planRequired, plainly, refused } from "./failure";
+import { billed, detail, familyOf, ours, planRequired, plainly, refused } from "./failure";
 import { Prose } from "./Prose";
 import {
   useAgent,
@@ -47,7 +47,7 @@ import { Face, brief as castBrief, join, roleOf, castTurn, roster as rosterLine,
 import { cleanForSpeech, speakAgent } from "./speech";
 import { AgentMaker, HOUSE, useAgentShelf, useCrew } from "./crew";
 import { called } from "./team";
-import { Anchor, Box, Button, Text, Tooltip, TooltipContent, TooltipTrigger, View, XStack, YStack } from "@hanzo/ui";
+import { Anchor, Box, Button, Text, Tooltip, TooltipContent, TooltipTrigger, View, VisuallyHidden, XStack, YStack } from "@hanzo/ui";
 import { useMedia } from "@hanzo/gui";
 import { given, tidy } from "./lib/title";
 import { useIam, useIamToken } from "@hanzo/iam/react";
@@ -55,7 +55,7 @@ import { bearer, hasSession, named, org } from "./lib/session";
 import { api } from "./lib/api";
 import { app, dev, go } from "./lib/host";
 import { useHost } from "./host";
-import { chats, house, paidPlan, paused, setCreditsAfterAllowance, useLimits } from "./lib/limits";
+import { chats, house, paidPlan, paused, setCreditsAfterAllowance, spends, ultra, useLimits } from "./lib/limits";
 import { LimitedBanner } from "@hanzo/ui/product/LimitedBanner";
 import type { LimitAction } from "@hanzo/ui/product/limits";
 import { WEB } from "./lib/web";
@@ -807,7 +807,7 @@ function Thread({
   // THE MODEL AND THE EFFORT are the one choice Chat and Dev share
   // (@hanzo/build `useMind`): the catalog from `GET /v1/models` and what the
   // reader kept, changed from the composer's chip or from Settings.
-  const { t } = useI18n();
+  const { t, format } = useI18n();
   const target = useMemo(() => ({ api: api(), token: bearer, org: org() }), [anonymous]); // eslint-disable-line react-hooks/exhaustive-deps
   // THE PLAN decides what the chip may offer: Free answers from the free lane
   // alone, so it opens there and lists the rest as upgrades (@hanzo/build).
@@ -1046,8 +1046,6 @@ function Thread({
   // a refusal.
   const held = paidPlan(limits);
   const pause = notice && (notice.fallback || notice.refused) ? notice : null;
-  // The banner's words and ways: the plan by name, when it comes back, and the two ways on.
-  const banner = pause ? paused(pause, limits?.plan ?? "", (id) => nameOf(id, listed), Date.now(), t) : null;
   // EVERY MODEL IS CHOSEN, never asked for: one the plan does not cover still
   // picks, and the gateway answers it with the policy's refusal or from Enso,
   // which the pane then shows. A turn the gateway refuses `plan_required`
@@ -1077,11 +1075,31 @@ function Thread({
     },
     ...(open ? { thread: open } : {}),
     onError: (e) => {
-      const needs = planRequired(e);
+      // A billing refusal's ways are the banner over the composer, Upgrade to
+      // continue first, so only a model the plan lacks opens the plans here.
+      const needs = billed(e) ? null : planRequired(e);
       if (needs && free) setAsk({ ...needs, model: nameOf(model, listed) });
     },
   });
   const { send, set, error, thread: kept } = chat;
+
+  // THE BANNER'S WORDS AND WAYS (lib/limits `paused`): usage reached, when it
+  // resets, and the ways on; the failed turn says the same words whether or
+  // not the banner is drawn. Try again later puts away this one refusal in
+  // this conversation: it is keyed by the conversation and its last turn, so
+  // the next send, refused again, shows it again.
+  const spent = pause ? paused(pause, limits, (id) => nameOf(id, listed), Date.now(), t, format) : null;
+  const [shut, setShut] = useState<string | null>(null);
+  const which = pause ? `${kept ?? open ?? ""}:${chat.messages[chat.messages.length - 1]?.id ?? ""}` : null;
+  const banner = which !== shut ? spent : null;
+  // A reset that comes while the banner stands is said when it comes: no time already passed.
+  const [ticks, tick] = useState(0);
+  useEffect(() => {
+    const wait = Date.parse(pause?.resets_at ?? "") - Date.now();
+    if (!(wait > 0)) return;
+    const id = setTimeout(() => tick((n) => n + 1), Math.min(wait, 2 ** 31 - 1));
+    return () => clearTimeout(id);
+  }, [pause?.resets_at, ticks]);
 
   // Threads THIS pane opened by writing them. Their transcript is already on
   // the screen — it is what was just said — so the restore below has nothing to
@@ -1360,7 +1378,7 @@ function Thread({
     void latest.current(text);
   }, []);
 
-  // THE WAYS PAST A PAUSE, as the server sends them. A page opens; Continue
+  // THE WAYS PAST A PAUSE. The upgrade opens the plans over the app; a page opens; Continue
   // with credits turns the org's choice on and asks the last question again on
   // the model the reader picked; a switch moves the picker. A refusal of the
   // write (only an org admin may make it) is said under the banner.
@@ -1368,12 +1386,24 @@ function Thread({
   const act = useCallback(
     (a: LimitAction) => {
       setActWrong("");
+      if (a.kind === "later") {
+        setShut(which);
+        // The banner leaves; the reader is put back in the field it stood over.
+        document.querySelector('[data-slot="limited-banner"]')?.closest('[data-slot="composer-shell"]')?.querySelector<HTMLElement>('[data-slot="composer-field"]')?.focus();
+        return;
+      }
+      // The upgrade opens the plans here, over the app (./Upgrade.tsx), on the plan the server named.
+      if (a.kind === "upgrade") {
+        setAsk({ href: a.url });
+        return;
+      }
       if (a.kind === "switch") {
         if (a.model) mind.pick(a.model);
         return;
       }
       if (a.kind !== "credits") {
-        if (a.url) window.location.assign(a.url);
+        const to = ours(a.url);
+        if (to) window.location.assign(to);
         return;
       }
       setCreditsAfterAllowance(true)
@@ -1388,7 +1418,7 @@ function Thread({
     },
     // `mind.pick` is rebuilt each render; the handler follows it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [reread, speak, failures, mind.model, listed, t],
+    [reread, speak, failures, mind.model, listed, t, which],
   );
 
   // A TURN THAT NEVER SPEAKS IS STOPPED. A stream that stays open with nothing
@@ -1646,11 +1676,11 @@ function Thread({
     const wrong = failed?.error ?? null;
     const how = wrong ? refusalOf(wrong) : null;
     // A BILLING REFUSAL is said in the gateway's words; its way past —
-    // Upgrade, Add prepaid credit — is the banner over the composer. The free
-    // plan's cap answers the same until it resets, so it offers no Try again.
+    // Upgrade, Add prepaid credit — is the banner over the composer. Usage spent
+    // until a reset answers the same until then, so it offers no Try again.
     const bill = wrong ? billed(wrong) : null;
     const resign = !bill && !!wrong && (refused(wrong) || /audience not allowed|invalid access token/i.test(wrong.message));
-    const lift = free ? planRequired(wrong) : null;
+    const lift = free && !bill ? planRequired(wrong) : null;
     const said = !failed
       ? t("No answer came back for this question.")
       : failed.stalled
@@ -1658,7 +1688,7 @@ function Thread({
         : failed.empty
           ? t("{model} answered with nothing.", { model: nameOf(model, listed) })
           : bill
-            ? banner?.message ?? notice?.message ?? (bill.message || plainly(wrong, t("this conversation"), t))
+            ? spent?.message ?? (spends(bill.code) ? (ultra(limits) ? t("Your balance is empty.") : t("Usage reached.")) : bill.message || plainly(wrong, t("this conversation"), t))
             : resign
             ? t(anonymous
               ? "Sign in to ask this."
@@ -1667,7 +1697,7 @@ function Thread({
               ? t("{model} is unavailable right now.", { model: familyOf(model) || nameOf(model, listed) })
               : plainly(wrong, t("this conversation"), t);
     return (
-      <Failure retryLabel={t("Try again")} onRetry={resign || lift || bill?.code === "free_plan_cap" ? undefined : () => speak(text, question.id)}>
+      <Failure retryLabel={t("Try again")} onRetry={resign || lift || spends(bill?.code ?? "") ? undefined : () => speak(text, question.id)}>
         <YStack gap="$2">
           <Text fontSize="$3" color="$ink">
             {whom.length ? `${t("No answer from {names}.", { names: join(whom, t) })} ` : ""}
@@ -1787,7 +1817,13 @@ function Thread({
                 the usage page — the shell's Settings pane, or the builder's
                 Usage (dev.tsx answers the request there). */}
             {banner ? (
-              <LimitedBanner message={banner.message} actions={banner.actions} onAction={act} onUsage={() => showSettings("usage")} />
+              <LimitedBanner
+                message={banner.message}
+                actions={banner.actions}
+                onAction={act}
+                onUsage={() => showSettings("usage")}
+                labels={{ usage: t("See usage"), dismiss: t("Dismiss") }}
+              />
             ) : null}
             {actWrong ? (
               <Text role="alert" data-slot="limited-banner-wrong" fontSize="$2" color={BAD}>
@@ -2379,6 +2415,11 @@ function Thread({
       <AgentMaker />
       {carry.dialog}
       <Upgrade ask={ask} onClose={() => setAsk(null)} />
+      {/* The banner is drawn, not announced: this region stays mounted, so the
+          message it is handed is what a screen reader hears. */}
+      <VisuallyHidden role="status" aria-live="polite" data-slot="limited-said">
+        <Text>{banner?.message ?? ""}</Text>
+      </VisuallyHidden>
     </YStack>
   );
 }
