@@ -5,9 +5,10 @@
 // Matches the modern ChatGPT-style modal:
 // - Centered "Upgrade your plan" title with top-right close button.
 // - Audience switcher: [ Personal | Business ].
-// - Personal view: 4 distinct plans (Free, Go, Multiplier [Pro 2x / Dev 5x / Max 10x], Ultra).
+// - Personal view: defaults to 2 plans (Free + Pro) with "Show all plans" expandable
+//   to full options (Free, Go, Pro, Dev, Max, Ultra).
 // - Business view: Free + Highlighted Business card with Annual/Monthly switch,
-//   in-card seat types (Standard & Premium), and comprehensive enterprise team features.
+//   in-card seat types (Standard & Premium), and enterprise notice at the bottom.
 
 import { useEffect, useState } from 'react'
 import { phrase } from '@hanzo/i18n'
@@ -22,7 +23,6 @@ import {
   Link2,
   Lock,
   Rocket,
-  Shield,
   ShieldCheck,
   Sliders,
   Sparkles,
@@ -110,6 +110,7 @@ export function Upgrade({ ask, onClose }: { ask: Ask | null; onClose: () => void
   const { t } = useI18n()
   const [audience, setAudience] = useState<Audience>('personal')
   const [multiplier, setMultiplier] = useState<MultiplierTier>('2x')
+  const [showAllPersonal, setShowAllPersonal] = useState(false)
   const [businessCycle, setBusinessCycle] = useState<Interval>('year')
   const [hashOpen, setHashOpen] = useState(false)
 
@@ -150,6 +151,9 @@ export function Upgrade({ ask, onClose }: { ask: Ask | null; onClose: () => void
   const activeMultiplier = MULTIPLIERS[multiplier]
 
   const goHref = term(payUrl('/cart', { plan: 'go', org: org(), returnUrl: here() }), 'month')
+  const proHref = term(payUrl('/cart', { plan: 'pro-2x', org: org(), returnUrl: here() }), 'month')
+  const devHref = term(payUrl('/cart', { plan: 'dev-5x', org: org(), returnUrl: here() }), 'month')
+  const maxHref = term(payUrl('/cart', { plan: 'max-10x', org: org(), returnUrl: here() }), 'month')
   const multiplierHref = term(payUrl('/cart', { plan: activeMultiplier.id, org: org(), returnUrl: here() }), 'month')
   const ultraHref = term(payUrl('/cart', { plan: 'ultra', org: org(), returnUrl: here() }), 'month')
   const businessHref = term(payUrl('/cart', { plan: 'team', quantity: '5', org: org(), returnUrl: here() }), businessCycle)
@@ -165,7 +169,7 @@ export function Upgrade({ ask, onClose }: { ask: Ask | null; onClose: () => void
       <DialogContent
         showCloseButton={false}
         width="calc(100vw - 32px)"
-        maxW={audience === 'business' ? 880 : 1100}
+        maxW={audience === 'business' || !showAllPersonal ? 880 : 1140}
         maxH="90vh"
         overflowY="auto"
         bg="var(--popover, #121212)"
@@ -265,593 +269,742 @@ export function Upgrade({ ask, onClose }: { ask: Ask | null; onClose: () => void
 
         {/* Audience Content */}
         {audience === 'personal' ? (
-          /* PERSONAL TAB: 4 CARDS (Free, Go, Multiplier Card, Ultra) */
-          <Box
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
-              gap: '16px',
-              width: '100%',
-              alignItems: 'stretch',
-            }}
-          >
-            {/* 1. Free Card */}
-            <YStack
-              bg="rgba(255, 255, 255, 0.02)"
-              borderWidth={1}
-              borderColor="rgba(255, 255, 255, 0.08)"
-              rounded="$6"
-              p="$4.5"
-              justify="space-between"
-              gap="$4"
+          !showAllPersonal ? (
+            /* DEFAULT 2-PLAN VIEW: FREE + PRO (Clean, uncluttered, matching ChatGPT modal) */
+            <YStack gap="$4" width="100%">
+              <Box
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                  gap: '24px',
+                  width: '100%',
+                  alignItems: 'stretch',
+                }}
+              >
+                {/* 1. Free Card */}
+                <YStack
+                  bg="rgba(255, 255, 255, 0.02)"
+                  borderWidth={1}
+                  borderColor="rgba(255, 255, 255, 0.08)"
+                  rounded="$6"
+                  p="$6"
+                  gap="$5"
+                  justify="space-between"
+                >
+                  <YStack gap="$3.5">
+                    <XStack items="center" gap="$1.5">
+                      <Sprout size={16} color="#4ade80" aria-hidden />
+                      <Text fontSize={14} fontWeight="500" color="#a1a1aa">
+                        {t('Free')}
+                      </Text>
+                    </XStack>
+
+                    <YStack gap="$1">
+                      <Text fontSize={24} fontWeight="700" color="$ink">
+                        {t('Try Hanzo')}
+                      </Text>
+                      <Text fontSize={14} color="var(--soft, #a1a1aa)">
+                        {t('See what AI can do.')}
+                      </Text>
+                    </YStack>
+
+                    <Button
+                      disabled
+                      variant="outline"
+                      rounded="$10"
+                      width="100%"
+                      py="$2.5"
+                      my="$2"
+                      borderColor="rgba(255, 255, 255, 0.15)"
+                      bg="transparent"
+                      cursor="default"
+                    >
+                      <Text fontSize={14} fontWeight="500" color="#8e8e8e">
+                        {t('Your current plan')}
+                      </Text>
+                    </Button>
+
+                    <XStack items="baseline" gap="$1">
+                      <Text fontSize={28} fontWeight="700" color="$ink">
+                        $0
+                      </Text>
+                      <Text fontSize={14} color="#8e8e8e">
+                        {t('/ month')}
+                      </Text>
+                    </XStack>
+
+                    <YStack gap="$3" pt="$2">
+                      {[
+                        t('Unlimited everyday text chats'),
+                        t('Access to all foundation models'),
+                        t('Standard inference speed'),
+                        t('Context memory and chat history'),
+                        t('Community support'),
+                      ].map((feat) => (
+                        <XStack key={feat} items="center" gap="$2.5">
+                          <Check size={16} color="#a1a1aa" aria-hidden />
+                          <Text fontSize={13} color="$ink">
+                            {feat}
+                          </Text>
+                        </XStack>
+                      ))}
+                    </YStack>
+                  </YStack>
+                </YStack>
+
+                {/* 2. Pro Card (Highlighted with Multiplier Switcher) */}
+                <YStack
+                  bg="rgba(37, 99, 235, 0.03)"
+                  borderWidth={1.5}
+                  borderColor="#2563eb"
+                  rounded="$6"
+                  p="$6"
+                  gap="$4"
+                  justify="space-between"
+                  boxShadow="0 0 28px rgba(37, 99, 235, 0.16)"
+                >
+                  <YStack gap="$3">
+                    <XStack items="center" justify="space-between">
+                      <XStack items="center" gap="$1.5">
+                        <activeMultiplier.icon size={16} color="#38bdf8" aria-hidden />
+                        <Text fontSize={16} fontWeight="700" color="$ink">
+                          {activeMultiplier.name}
+                        </Text>
+                      </XStack>
+
+                      {/* Multiplier pill switcher */}
+                      <XStack
+                        items="center"
+                        bg="rgba(0, 0, 0, 0.45)"
+                        p={2}
+                        rounded="$10"
+                        gap={1}
+                        borderWidth={1}
+                        borderColor="rgba(255, 255, 255, 0.1)"
+                      >
+                        {(['2x', '5x', '10x'] as const).map((m) => (
+                          <Box
+                            key={m}
+                            render="button"
+                            onClick={() => setMultiplier(m)}
+                            bg={multiplier === m ? 'rgba(255, 255, 255, 0.22)' : 'transparent'}
+                            px="$2"
+                            py="$0.5"
+                            rounded="$10"
+                            borderWidth={0}
+                            cursor="pointer"
+                          >
+                            <Text
+                              fontSize={11}
+                              fontWeight={multiplier === m ? '700' : '500'}
+                              color={multiplier === m ? '#ffffff' : '#8e8e8e'}
+                            >
+                              {m}
+                            </Text>
+                          </Box>
+                        ))}
+                      </XStack>
+                    </XStack>
+
+                    <YStack gap="$1">
+                      <Text fontSize={24} fontWeight="700" color="$ink">
+                        {t('{name} {tier}', { name: activeMultiplier.name, tier: activeMultiplier.multiple })}
+                      </Text>
+                      <Text fontSize={14} color="var(--soft, #a1a1aa)">
+                        {t(activeMultiplier.subtitle)}
+                      </Text>
+                    </YStack>
+
+                    {/* Primary CTA button: ✦ Get Pro */}
+                    <Anchor
+                      href={multiplierHref}
+                      onPress={() => handleBuy(activeMultiplier.id, activeMultiplier.name, activeMultiplier.price)}
+                      bg="#0070f3"
+                      hoverStyle={{ bg: '#0060df' }}
+                      rounded="$10"
+                      width="100%"
+                      py="$3"
+                      my="$1"
+                      color="#ffffff"
+                      fontWeight="600"
+                      fontSize={14}
+                      text="center"
+                      textDecorationLine="none"
+                      items="center"
+                      justify="center"
+                      gap="$2"
+                    >
+                      <Sparkles size={16} color="#ffffff" aria-hidden />
+                      {t('Get {name}', { name: activeMultiplier.name })}
+                    </Anchor>
+
+                    <XStack items="baseline" gap="$1" pt="$1">
+                      <Text fontSize={28} fontWeight="700" color="$ink">
+                        ${activeMultiplier.price}
+                      </Text>
+                      <Text fontSize={14} color="#8e8e8e">
+                        {t('/ month')}
+                      </Text>
+                    </XStack>
+
+                    <YStack gap="$2.5" pt="$1">
+                      {[
+                        t('Everything in Free, plus:'),
+                        t('{multiple} more usage than Free', { multiple: activeMultiplier.multiple }),
+                        t('Access to Enso Ultra, Kai, and frontier models'),
+                        t('Build apps with Hanzo Dev & CLI'),
+                        t('Connect any MCP server'),
+                        t('Background agents & automations'),
+                        t('Hanzo Bot: {bots} custom {bots, plural, one {bot} other {bots}}', { bots: activeMultiplier.bots }),
+                        t('Dedicated priority support'),
+                      ].map((feat, idx) => (
+                        <XStack key={feat} items="center" gap="$2.5">
+                          <Check size={16} color={idx === 0 ? '#38bdf8' : '#388bfd'} aria-hidden />
+                          <Text fontSize={13} color="$ink" fontWeight={idx === 0 ? '600' : '400'}>
+                            {feat}
+                          </Text>
+                        </XStack>
+                      ))}
+                    </YStack>
+                  </YStack>
+                </YStack>
+              </Box>
+
+              {/* Show all plans button */}
+              <XStack justify="center" pt="$1">
+                <Box
+                  render="button"
+                  onClick={() => setShowAllPersonal(true)}
+                  bg="rgba(255, 255, 255, 0.05)"
+                  hoverStyle={{ bg: 'rgba(255, 255, 255, 0.1)' }}
+                  px="$4"
+                  py="$2"
+                  rounded="$10"
+                  borderWidth={1}
+                  borderColor="rgba(255, 255, 255, 0.1)"
+                  cursor="pointer"
+                >
+                  <Text fontSize={13} fontWeight="500" color="#38bdf8">
+                    {t('Show all plans (Free, Go, Pro, Dev, Max, Ultra) ↓')}
+                  </Text>
+                </Box>
+              </XStack>
+            </YStack>
+          ) : (
+            /* EXPANDED VIEW: ALL PERSONAL OPTIONS (Free, Go, Pro 2x, Dev 5x, Max 10x, Ultra) */
+            <YStack gap="$4" width="100%">
+              <Box
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                  gap: '14px',
+                  width: '100%',
+                  alignItems: 'stretch',
+                }}
+              >
+                {/* 1. Free */}
+                <YStack
+                  bg="rgba(255, 255, 255, 0.02)"
+                  borderWidth={1}
+                  borderColor="rgba(255, 255, 255, 0.08)"
+                  rounded="$6"
+                  p="$4"
+                  justify="space-between"
+                  gap="$3"
+                >
+                  <YStack gap="$2">
+                    <XStack items="center" gap="$1.5">
+                      <Sprout size={15} color="#4ade80" aria-hidden />
+                      <Text fontSize={12} fontWeight="600" color="#a1a1aa">{t('Free')}</Text>
+                    </XStack>
+                    <Text fontSize={18} fontWeight="700" color="$ink">{t('Try Hanzo')}</Text>
+                    <Text fontSize={12} color="var(--soft, #a1a1aa)" minH={32}>{t('See what AI can do.')}</Text>
+                    <Button disabled variant="outline" rounded="$10" py="$1.5" borderColor="rgba(255, 255, 255, 0.15)" bg="transparent" cursor="default">
+                      <Text fontSize={12} fontWeight="500" color="#8e8e8e">{t('Current plan')}</Text>
+                    </Button>
+                    <XStack items="baseline" gap="$1">
+                      <Text fontSize={22} fontWeight="700" color="$ink">$0</Text>
+                      <Text fontSize={12} color="#8e8e8e">{t('/ mo')}</Text>
+                    </XStack>
+                    <YStack gap="$1.5" pt="$1">
+                      {[t('Everyday chats'), t('Foundation models'), t('Standard speed'), t('Community support')].map((f) => (
+                        <XStack key={f} items="center" gap="$1.5">
+                          <Check size={13} color="#a1a1aa" aria-hidden />
+                          <Text fontSize={11} color="$ink">{f}</Text>
+                        </XStack>
+                      ))}
+                    </YStack>
+                  </YStack>
+                </YStack>
+
+                {/* 2. Go ($8/mo) */}
+                <YStack
+                  bg="rgba(255, 255, 255, 0.02)"
+                  borderWidth={1}
+                  borderColor="rgba(255, 255, 255, 0.08)"
+                  rounded="$6"
+                  p="$4"
+                  justify="space-between"
+                  gap="$3"
+                >
+                  <YStack gap="$2">
+                    <XStack items="center" gap="$1.5">
+                      <Zap size={15} color="#eab308" aria-hidden />
+                      <Text fontSize={12} fontWeight="600" color="#a1a1aa">{t('Go')}</Text>
+                    </XStack>
+                    <Text fontSize={18} fontWeight="700" color="$ink">{t('Everyday AI')}</Text>
+                    <Text fontSize={12} color="var(--soft, #a1a1aa)" minH={32}>{t('More models & agents.')}</Text>
+                    <Anchor href={goHref} onPress={() => handleBuy('go', 'Go', 8)} bg="var(--primary)" rounded="$10" py="$1.5" px="$3" color="#ffffff" fontWeight="600" fontSize={12} text="center" textDecorationLine="none">
+                      {t('Get Go')}
+                    </Anchor>
+                    <XStack items="baseline" gap="$1">
+                      <Text fontSize={22} fontWeight="700" color="$ink">$8</Text>
+                      <Text fontSize={12} color="#8e8e8e">{t('/ mo')}</Text>
+                    </XStack>
+                    <YStack gap="$1.5" pt="$1">
+                      {[t('All frontier models'), t('Hanzo Dev & CLI'), t('Connect MCP servers'), t('Background agents')].map((f) => (
+                        <XStack key={f} items="center" gap="$1.5">
+                          <Check size={13} color="#38bdf8" aria-hidden />
+                          <Text fontSize={11} color="$ink">{f}</Text>
+                        </XStack>
+                      ))}
+                    </YStack>
+                  </YStack>
+                </YStack>
+
+                {/* 3. Pro 2x ($15/mo) */}
+                <YStack
+                  bg="rgba(255, 255, 255, 0.04)"
+                  borderWidth={1.5}
+                  borderColor="rgba(56, 189, 248, 0.3)"
+                  rounded="$6"
+                  p="$4"
+                  justify="space-between"
+                  gap="$3"
+                >
+                  <YStack gap="$2">
+                    <XStack items="center" gap="$1.5">
+                      <Rocket size={15} color="#38bdf8" aria-hidden />
+                      <Text fontSize={12} fontWeight="700" color="$ink">{t('Pro 2×')}</Text>
+                    </XStack>
+                    <Text fontSize={18} fontWeight="700" color="$ink">{t('Pro')}</Text>
+                    <Text fontSize={12} color="var(--soft, #a1a1aa)" minH={32}>{t('2× limits for builders.')}</Text>
+                    <Anchor href={proHref} onPress={() => handleBuy('pro-2x', 'Pro', 15)} bg="var(--primary)" rounded="$10" py="$1.5" px="$3" color="#ffffff" fontWeight="600" fontSize={12} text="center" textDecorationLine="none">
+                      {t('Get Pro')}
+                    </Anchor>
+                    <XStack items="baseline" gap="$1">
+                      <Text fontSize={22} fontWeight="700" color="$ink">$15</Text>
+                      <Text fontSize={12} color="#8e8e8e">{t('/ mo')}</Text>
+                    </XStack>
+                    <YStack gap="$1.5" pt="$1">
+                      {[t('2× more usage than Go'), t('2× higher 5h limits'), t('1 custom Hanzo Bot'), t('Priority support')].map((f) => (
+                        <XStack key={f} items="center" gap="$1.5">
+                          <Check size={13} color="#38bdf8" aria-hidden />
+                          <Text fontSize={11} color="$ink">{f}</Text>
+                        </XStack>
+                      ))}
+                    </YStack>
+                  </YStack>
+                </YStack>
+
+                {/* 4. Dev 5x ($45/mo) */}
+                <YStack
+                  bg="rgba(255, 255, 255, 0.02)"
+                  borderWidth={1}
+                  borderColor="rgba(255, 255, 255, 0.08)"
+                  rounded="$6"
+                  p="$4"
+                  justify="space-between"
+                  gap="$3"
+                >
+                  <YStack gap="$2">
+                    <XStack items="center" gap="$1.5">
+                      <Cpu size={15} color="#60a5fa" aria-hidden />
+                      <Text fontSize={12} fontWeight="700" color="$ink">{t('Dev 5×')}</Text>
+                    </XStack>
+                    <Text fontSize={18} fontWeight="700" color="$ink">{t('Dev')}</Text>
+                    <Text fontSize={12} color="var(--soft, #a1a1aa)" minH={32}>{t('5× limits for agents.')}</Text>
+                    <Anchor href={devHref} onPress={() => handleBuy('dev-5x', 'Dev', 45)} bg="var(--primary)" rounded="$10" py="$1.5" px="$3" color="#ffffff" fontWeight="600" fontSize={12} text="center" textDecorationLine="none">
+                      {t('Get Dev')}
+                    </Anchor>
+                    <XStack items="baseline" gap="$1">
+                      <Text fontSize={22} fontWeight="700" color="$ink">$45</Text>
+                      <Text fontSize={12} color="#8e8e8e">{t('/ mo')}</Text>
+                    </XStack>
+                    <YStack gap="$1.5" pt="$1">
+                      {[t('5× more usage than Go'), t('5× higher 5h limits'), t('1 custom Hanzo Bot'), t('Train custom models')].map((f) => (
+                        <XStack key={f} items="center" gap="$1.5">
+                          <Check size={13} color="#60a5fa" aria-hidden />
+                          <Text fontSize={11} color="$ink">{f}</Text>
+                        </XStack>
+                      ))}
+                    </YStack>
+                  </YStack>
+                </YStack>
+
+                {/* 5. Max 10x ($95/mo) */}
+                <YStack
+                  bg="rgba(255, 255, 255, 0.02)"
+                  borderWidth={1}
+                  borderColor="rgba(255, 255, 255, 0.08)"
+                  rounded="$6"
+                  p="$4"
+                  justify="space-between"
+                  gap="$3"
+                >
+                  <YStack gap="$2">
+                    <XStack items="center" gap="$1.5">
+                      <Crown size={15} color="#fbbf24" aria-hidden />
+                      <Text fontSize={12} fontWeight="700" color="$ink">{t('Max 10×')}</Text>
+                    </XStack>
+                    <Text fontSize={18} fontWeight="700" color="$ink">{t('Max')}</Text>
+                    <Text fontSize={12} color="var(--soft, #a1a1aa)" minH={32}>{t('10× continuous limits.')}</Text>
+                    <Anchor href={maxHref} onPress={() => handleBuy('max-10x', 'Max', 95)} bg="var(--primary)" rounded="$10" py="$1.5" px="$3" color="#ffffff" fontWeight="600" fontSize={12} text="center" textDecorationLine="none">
+                      {t('Get Max')}
+                    </Anchor>
+                    <XStack items="baseline" gap="$1">
+                      <Text fontSize={22} fontWeight="700" color="$ink">$95</Text>
+                      <Text fontSize={12} color="#8e8e8e">{t('/ mo')}</Text>
+                    </XStack>
+                    <YStack gap="$1.5" pt="$1">
+                      {[t('10× more usage than Go'), t('10× higher 5h limits'), t('3 custom Hanzo Bots'), t('Dedicated support')].map((f) => (
+                        <XStack key={f} items="center" gap="$1.5">
+                          <Check size={13} color="#fbbf24" aria-hidden />
+                          <Text fontSize={11} color="$ink">{f}</Text>
+                        </XStack>
+                      ))}
+                    </YStack>
+                  </YStack>
+                </YStack>
+
+                {/* 6. Ultra ($195/mo) */}
+                <YStack
+                  bg="rgba(255, 255, 255, 0.02)"
+                  borderWidth={1}
+                  borderColor="rgba(255, 255, 255, 0.08)"
+                  rounded="$6"
+                  p="$4"
+                  justify="space-between"
+                  gap="$3"
+                >
+                  <YStack gap="$2">
+                    <XStack items="center" gap="$1.5">
+                      <Infinity size={15} color="#c084fc" aria-hidden />
+                      <Text fontSize={12} fontWeight="700" color="$ink">{t('Ultra')}</Text>
+                    </XStack>
+                    <Text fontSize={18} fontWeight="700" color="$ink">{t('Frontier Scale')}</Text>
+                    <Text fontSize={12} color="var(--soft, #a1a1aa)" minH={32}>{t('Unlimited intelligence.')}</Text>
+                    <Anchor href={ultraHref} onPress={() => handleBuy('ultra', 'Ultra', 195)} bg="rgba(255, 255, 255, 0.12)" rounded="$10" py="$1.5" px="$3" color="#ffffff" fontWeight="600" fontSize={12} text="center" textDecorationLine="none">
+                      {t('Get Ultra')}
+                    </Anchor>
+                    <XStack items="baseline" gap="$1">
+                      <Text fontSize={22} fontWeight="700" color="$ink">$195</Text>
+                      <Text fontSize={12} color="#8e8e8e">{t('/ mo')}</Text>
+                    </XStack>
+                    <YStack gap="$1.5" pt="$1">
+                      {[t('Unlimited model usage'), t('No hourly rate limits'), t('5 custom Hanzo Bots'), t('Engineering Slack')].map((f) => (
+                        <XStack key={f} items="center" gap="$1.5">
+                          <Check size={13} color="#c084fc" aria-hidden />
+                          <Text fontSize={11} color="$ink">{f}</Text>
+                        </XStack>
+                      ))}
+                    </YStack>
+                  </YStack>
+                </YStack>
+              </Box>
+
+              {/* Show fewer plans button */}
+              <XStack justify="center" pt="$1">
+                <Box
+                  render="button"
+                  onClick={() => setShowAllPersonal(false)}
+                  bg="transparent"
+                  hoverStyle={{ bg: 'rgba(255, 255, 255, 0.06)' }}
+                  px="$4"
+                  py="$2"
+                  rounded="$10"
+                  borderWidth={1}
+                  borderColor="rgba(255, 255, 255, 0.1)"
+                  cursor="pointer"
+                >
+                  <Text fontSize={13} fontWeight="500" color="#a1a1aa">
+                    {t('Show fewer plans ↑')}
+                  </Text>
+                </Box>
+              </XStack>
+            </YStack>
+          )
+        ) : (
+          /* BUSINESS TAB: EXACT CHATGPT PRICING MODAL LAYOUT (Free + Highlighted Business) */
+          <YStack gap="$4" width="100%">
+            <Box
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                gap: '24px',
+                width: '100%',
+                alignItems: 'stretch',
+              }}
             >
-              <YStack gap="$2.5">
-                <XStack items="center" gap="$1.5">
-                  <Sprout size={16} color="#4ade80" aria-hidden />
-                  <Text fontSize={13} fontWeight="600" color="#a1a1aa">
+              {/* Free Card in Business view */}
+              <YStack
+                bg="rgba(255, 255, 255, 0.02)"
+                borderWidth={1}
+                borderColor="rgba(255, 255, 255, 0.08)"
+                rounded="$6"
+                p="$6"
+                gap="$5"
+                justify="space-between"
+              >
+                <YStack gap="$3.5">
+                  <Text fontSize={14} fontWeight="500" color="#a1a1aa">
                     {t('Free')}
                   </Text>
-                </XStack>
 
-                <YStack gap="$1">
-                  <Text fontSize={20} fontWeight="700" color="$ink">
-                    {t('Try Hanzo')}
-                  </Text>
-                  <Text fontSize={13} color="var(--soft, #a1a1aa)" minH={36}>
-                    {t('See what AI can do.')}
-                  </Text>
-                </YStack>
+                  <YStack gap="$1">
+                    <Text fontSize={24} fontWeight="700" color="$ink">
+                      {t('Try Hanzo')}
+                    </Text>
+                    <Text fontSize={14} color="var(--soft, #a1a1aa)">
+                      {t('See what AI can do.')}
+                    </Text>
+                  </YStack>
 
-                <Button
-                  disabled
-                  variant="outline"
-                  rounded="$10"
-                  py="$2"
-                  borderColor="rgba(255, 255, 255, 0.15)"
-                  bg="transparent"
-                  cursor="default"
-                >
-                  <Text fontSize={13} fontWeight="500" color="#8e8e8e">
-                    {t('Your current plan')}
-                  </Text>
-                </Button>
+                  <Button
+                    disabled
+                    variant="outline"
+                    rounded="$10"
+                    width="100%"
+                    py="$2.5"
+                    my="$2"
+                    borderColor="rgba(255, 255, 255, 0.15)"
+                    bg="transparent"
+                    cursor="default"
+                  >
+                    <Text fontSize={14} fontWeight="500" color="#8e8e8e">
+                      {t('Your current plan')}
+                    </Text>
+                  </Button>
 
-                <XStack items="baseline" gap="$1" pt="$1">
-                  <Text fontSize={26} fontWeight="700" color="$ink">
-                    $0
-                  </Text>
-                  <Text fontSize={13} color="#8e8e8e">
-                    {t('/ month')}
-                  </Text>
-                </XStack>
-
-                <YStack gap="$2" pt="$2">
-                  {[
-                    t('Unlimited everyday text chats'),
-                    t('Access to all foundation models'),
-                    t('Standard inference speed'),
-                    t('Context memory and chat history'),
-                    t('Community support'),
-                  ].map((feat) => (
-                    <XStack key={feat} items="center" gap="$2">
-                      <Check size={14} color="#a1a1aa" aria-hidden />
-                      <Text fontSize={12} color="$ink">
-                        {feat}
-                      </Text>
-                    </XStack>
-                  ))}
-                </YStack>
-              </YStack>
-            </YStack>
-
-            {/* 2. Go Card ($8/mo) */}
-            <YStack
-              bg="rgba(255, 255, 255, 0.02)"
-              borderWidth={1}
-              borderColor="rgba(255, 255, 255, 0.08)"
-              rounded="$6"
-              p="$4.5"
-              justify="space-between"
-              gap="$4"
-            >
-              <YStack gap="$2.5">
-                <XStack items="center" gap="$1.5">
-                  <Zap size={16} color="#eab308" aria-hidden />
-                  <Text fontSize={13} fontWeight="600" color="#a1a1aa">
-                    {t('Go')}
-                  </Text>
-                </XStack>
-
-                <YStack gap="$1">
-                  <Text fontSize={20} fontWeight="700" color="$ink">
-                    {t('Everyday AI')}
-                  </Text>
-                  <Text fontSize={13} color="var(--soft, #a1a1aa)" minH={36}>
-                    {t('More models, tools, and background agents.')}
-                  </Text>
-                </YStack>
-
-                <Anchor
-                  href={goHref}
-                  onPress={() => handleBuy('go', 'Go', 8)}
-                  bg="var(--primary)"
-                  hoverStyle={{ bg: 'var(--primary-hover, #2563eb)' }}
-                  rounded="$10"
-                  py="$2"
-                  px="$3"
-                  color="#ffffff"
-                  fontWeight="600"
-                  fontSize={13}
-                  text="center"
-                  textDecorationLine="none"
-                >
-                  {t('Get Go')}
-                </Anchor>
-
-                <XStack items="baseline" gap="$1" pt="$1">
-                  <Text fontSize={26} fontWeight="700" color="$ink">
-                    $8
-                  </Text>
-                  <Text fontSize={13} color="#8e8e8e">
-                    {t('/ month')}
-                  </Text>
-                </XStack>
-
-                <YStack gap="$2" pt="$2">
-                  {[
-                    t('Everything in Free, plus:'),
-                    t('Build apps with Hanzo Dev & CLI'),
-                    t('Connect any MCP server'),
-                    t('Every model including Enso & Kai'),
-                    t('Background agents & automations'),
-                  ].map((feat, idx) => (
-                    <XStack key={feat} items="center" gap="$2">
-                      <Check size={14} color={idx === 0 ? '#38bdf8' : '#a1a1aa'} aria-hidden />
-                      <Text fontSize={12} color={idx === 0 ? '$ink' : '$ink'} fontWeight={idx === 0 ? '600' : '400'}>
-                        {feat}
-                      </Text>
-                    </XStack>
-                  ))}
-                </YStack>
-              </YStack>
-            </YStack>
-
-            {/* 3. Multiplier Card (Pro 2x / Dev 5x / Max 10x) */}
-            <YStack
-              bg="rgba(255, 255, 255, 0.04)"
-              borderWidth={1.5}
-              borderColor="rgba(255, 255, 255, 0.16)"
-              rounded="$6"
-              p="$4.5"
-              justify="space-between"
-              gap="$4"
-              position="relative"
-            >
-              <YStack gap="$2.5">
-                <XStack items="center" justify="space-between">
-                  <XStack items="center" gap="$1.5">
-                    <activeMultiplier.icon size={16} color="#38bdf8" aria-hidden />
-                    <Text fontSize={13} fontWeight="700" color="$ink">
-                      {activeMultiplier.name}
+                  <XStack items="baseline" gap="$1">
+                    <Text fontSize={28} fontWeight="700" color="$ink">
+                      $0
+                    </Text>
+                    <Text fontSize={14} color="#8e8e8e">
+                      {t('/ month')}
                     </Text>
                   </XStack>
 
-                  {/* Multiplier pill switch: [ 2x | 5x | 10x ] */}
-                  <XStack
-                    items="center"
-                    bg="rgba(0, 0, 0, 0.4)"
-                    p={2}
-                    rounded="$10"
-                    gap={1}
-                    borderWidth={1}
-                    borderColor="rgba(255, 255, 255, 0.08)"
-                  >
-                    {(['2x', '5x', '10x'] as const).map((m) => (
+                  <YStack gap="$3" pt="$3">
+                    {[
+                      t('Unlimited everyday text chats'),
+                      t('Limited access to image creation'),
+                      t('Limited memory and storage'),
+                      t('Limited voice chats'),
+                      t('Community and open model access'),
+                    ].map((feat) => (
+                      <XStack key={feat} items="center" gap="$2.5">
+                        <Check size={16} color="#a1a1aa" aria-hidden />
+                        <Text fontSize={13} color="$ink">
+                          {feat}
+                        </Text>
+                      </XStack>
+                    ))}
+                  </YStack>
+                </YStack>
+              </YStack>
+
+              {/* Business Card (Prominent blue border matching reference screenshot) */}
+              <YStack
+                bg="rgba(37, 99, 235, 0.03)"
+                borderWidth={1.5}
+                borderColor="#2563eb"
+                rounded="$6"
+                p="$6"
+                gap="$4"
+                justify="space-between"
+                boxShadow="0 0 28px rgba(37, 99, 235, 0.16)"
+              >
+                <YStack gap="$3">
+                  {/* Header with Business and [ Annual | Monthly ] toggle */}
+                  <XStack items="center" justify="space-between">
+                    <Text fontSize={16} fontWeight="700" color="$ink">
+                      {t('Business')}
+                    </Text>
+
+                    <XStack
+                      items="center"
+                      bg="#212121"
+                      p={2}
+                      rounded="$10"
+                      gap={1}
+                      borderWidth={1}
+                      borderColor="rgba(255, 255, 255, 0.08)"
+                    >
                       <Box
-                        key={m}
                         render="button"
-                        onClick={() => setMultiplier(m)}
-                        bg={multiplier === m ? 'rgba(255, 255, 255, 0.22)' : 'transparent'}
-                        px="$1.5"
-                        py="$0.5"
+                        onClick={() => setBusinessCycle('year')}
+                        bg={businessCycle === 'year' ? '#343434' : 'transparent'}
+                        px="$2.5"
+                        py="$1"
                         rounded="$10"
                         borderWidth={0}
                         cursor="pointer"
                       >
                         <Text
-                          fontSize={10}
-                          fontWeight={multiplier === m ? '700' : '500'}
-                          color={multiplier === m ? '#ffffff' : '#8e8e8e'}
+                          fontSize={11}
+                          fontWeight={businessCycle === 'year' ? '600' : '400'}
+                          color={businessCycle === 'year' ? '#ffffff' : '#8e8e8e'}
                         >
-                          {m}
+                          {t('Annual')}
                         </Text>
                       </Box>
-                    ))}
+                      <Box
+                        render="button"
+                        onClick={() => setBusinessCycle('month')}
+                        bg={businessCycle === 'month' ? '#343434' : 'transparent'}
+                        px="$2.5"
+                        py="$1"
+                        rounded="$10"
+                        borderWidth={0}
+                        cursor="pointer"
+                      >
+                        <Text
+                          fontSize={11}
+                          fontWeight={businessCycle === 'month' ? '600' : '400'}
+                          color={businessCycle === 'month' ? '#ffffff' : '#8e8e8e'}
+                        >
+                          {t('Monthly')}
+                        </Text>
+                      </Box>
+                    </XStack>
                   </XStack>
-                </XStack>
 
-                <YStack gap="$1">
-                  <Text fontSize={20} fontWeight="700" color="$ink">
-                    {t('{name} {tier}', { name: activeMultiplier.name, tier: activeMultiplier.multiple })}
-                  </Text>
-                  <Text fontSize={13} color="var(--soft, #a1a1aa)" minH={36}>
-                    {t(activeMultiplier.subtitle)}
-                  </Text>
-                </YStack>
+                  <YStack gap="$1">
+                    <Text fontSize={24} fontWeight="700" color="$ink">
+                      {t('For growing teams')}
+                    </Text>
+                    <Text fontSize={14} color="var(--soft, #a1a1aa)">
+                      {t('A secure workspace with company context')}
+                    </Text>
+                  </YStack>
 
-                <Anchor
-                  href={multiplierHref}
-                  onPress={() => handleBuy(activeMultiplier.id, activeMultiplier.name, activeMultiplier.price)}
-                  bg="var(--primary)"
-                  hoverStyle={{ bg: 'var(--primary-hover, #2563eb)' }}
-                  rounded="$10"
-                  py="$2"
-                  px="$3"
-                  color="#ffffff"
-                  fontWeight="600"
-                  fontSize={13}
-                  text="center"
-                  textDecorationLine="none"
-                >
-                  {t('Get {name}', { name: activeMultiplier.name })}
-                </Anchor>
-
-                <XStack items="baseline" gap="$1" pt="$1">
-                  <Text fontSize={26} fontWeight="700" color="$ink">
-                    ${activeMultiplier.price}
-                  </Text>
-                  <Text fontSize={13} color="#8e8e8e">
-                    {t('/ month')}
-                  </Text>
-                </XStack>
-
-                <YStack gap="$2" pt="$2">
-                  {[
-                    t('Everything in Go, plus:'),
-                    t('{multiple} more usage than Go', { multiple: activeMultiplier.multiple }),
-                    t('{multiple} higher 5-hour and daily limits', { multiple: activeMultiplier.multiple }),
-                    t('Hanzo Bot: {bots} custom {bots, plural, one {bot} other {bots}}', { bots: activeMultiplier.bots }),
-                    t('Early access to new frontier models'),
-                    t('Train custom models on your data'),
-                    t('Dedicated support'),
-                  ].map((feat, idx) => (
-                    <XStack key={feat} items="center" gap="$2">
-                      <Check size={14} color={idx === 0 ? '#38bdf8' : '#a1a1aa'} aria-hidden />
-                      <Text fontSize={12} color={idx === 0 ? '$ink' : '$ink'} fontWeight={idx === 0 ? '600' : '400'}>
-                        {feat}
-                      </Text>
-                    </XStack>
-                  ))}
-                </YStack>
-              </YStack>
-            </YStack>
-
-            {/* 4. Ultra Card ($195/mo) */}
-            <YStack
-              bg="rgba(255, 255, 255, 0.02)"
-              borderWidth={1}
-              borderColor="rgba(255, 255, 255, 0.08)"
-              rounded="$6"
-              p="$4.5"
-              justify="space-between"
-              gap="$4"
-            >
-              <YStack gap="$2.5">
-                <XStack items="center" gap="$1.5">
-                  <Infinity size={16} color="#c084fc" aria-hidden />
-                  <Text fontSize={13} fontWeight="600" color="#a1a1aa">
-                    {t('Ultra')}
-                  </Text>
-                </XStack>
-
-                <YStack gap="$1">
-                  <Text fontSize={20} fontWeight="700" color="$ink">
-                    {t('Frontier Scale')}
-                  </Text>
-                  <Text fontSize={13} color="var(--soft, #a1a1aa)" minH={36}>
-                    {t('Unlimited intelligence with no hourly limits.')}
-                  </Text>
-                </YStack>
-
-                <Anchor
-                  href={ultraHref}
-                  onPress={() => handleBuy('ultra', 'Ultra', 195)}
-                  bg="rgba(255, 255, 255, 0.12)"
-                  hoverStyle={{ bg: 'rgba(255, 255, 255, 0.2)' }}
-                  rounded="$10"
-                  py="$2"
-                  px="$3"
-                  color="#ffffff"
-                  fontWeight="600"
-                  fontSize={13}
-                  text="center"
-                  textDecorationLine="none"
-                >
-                  {t('Get Ultra')}
-                </Anchor>
-
-                <XStack items="baseline" gap="$1" pt="$1">
-                  <Text fontSize={26} fontWeight="700" color="$ink">
-                    $195
-                  </Text>
-                  <Text fontSize={13} color="#8e8e8e">
-                    {t('/ month')}
-                  </Text>
-                </XStack>
-
-                <YStack gap="$2" pt="$2">
-                  {[
-                    t('Everything in Max, plus:'),
-                    t('Unlimited usage on every model'),
-                    t('No hourly rate limits'),
-                    t('Continuous agent generation'),
-                    t('Hanzo Bot: 5 custom bots'),
-                    t('Dedicated engineering support'),
-                  ].map((feat, idx) => (
-                    <XStack key={feat} items="center" gap="$2">
-                      <Check size={14} color={idx === 0 ? '#c084fc' : '#a1a1aa'} aria-hidden />
-                      <Text fontSize={12} color={idx === 0 ? '$ink' : '$ink'} fontWeight={idx === 0 ? '600' : '400'}>
-                        {feat}
-                      </Text>
-                    </XStack>
-                  ))}
-                </YStack>
-              </YStack>
-            </YStack>
-          </Box>
-        ) : (
-          /* BUSINESS TAB: EXACT CHATGPT PRICING MODAL LAYOUT (Free + Highlighted Business) */
-          <Box
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-              gap: '24px',
-              width: '100%',
-              alignItems: 'stretch',
-            }}
-          >
-            {/* Free Card in Business view */}
-            <YStack
-              bg="rgba(255, 255, 255, 0.02)"
-              borderWidth={1}
-              borderColor="rgba(255, 255, 255, 0.08)"
-              rounded="$6"
-              p="$6"
-              gap="$5"
-              justify="space-between"
-            >
-              <YStack gap="$3.5">
-                <Text fontSize={14} fontWeight="500" color="#a1a1aa">
-                  {t('Free')}
-                </Text>
-
-                <YStack gap="$1">
-                  <Text fontSize={24} fontWeight="700" color="$ink">
-                    {t('Try Hanzo')}
-                  </Text>
-                  <Text fontSize={14} color="var(--soft, #a1a1aa)">
-                    {t('See what AI can do.')}
-                  </Text>
-                </YStack>
-
-                <Button
-                  disabled
-                  variant="outline"
-                  rounded="$10"
-                  width="100%"
-                  py="$2.5"
-                  my="$2"
-                  borderColor="rgba(255, 255, 255, 0.15)"
-                  bg="transparent"
-                  cursor="default"
-                >
-                  <Text fontSize={14} fontWeight="500" color="#8e8e8e">
-                    {t('Your current plan')}
-                  </Text>
-                </Button>
-
-                <XStack items="baseline" gap="$1">
-                  <Text fontSize={28} fontWeight="700" color="$ink">
-                    $0
-                  </Text>
-                  <Text fontSize={14} color="#8e8e8e">
-                    {t('/ month')}
-                  </Text>
-                </XStack>
-
-                <YStack gap="$3" pt="$3">
-                  {[
-                    t('Unlimited everyday text chats'),
-                    t('Limited access to image creation'),
-                    t('Limited memory and storage'),
-                    t('Limited voice chats'),
-                    t('Community and open model access'),
-                  ].map((feat) => (
-                    <XStack key={feat} items="center" gap="$2.5">
-                      <Check size={16} color="#a1a1aa" aria-hidden />
-                      <Text fontSize={13} color="$ink">
-                        {feat}
-                      </Text>
-                    </XStack>
-                  ))}
-                </YStack>
-              </YStack>
-            </YStack>
-
-            {/* Business Card (Prominent blue border matching reference screenshot) */}
-            <YStack
-              bg="rgba(37, 99, 235, 0.03)"
-              borderWidth={1.5}
-              borderColor="#2563eb"
-              rounded="$6"
-              p="$6"
-              gap="$4"
-              justify="space-between"
-              boxShadow="0 0 28px rgba(37, 99, 235, 0.16)"
-            >
-              <YStack gap="$3">
-                {/* Header with Business and [ Annual | Monthly ] toggle */}
-                <XStack items="center" justify="space-between">
-                  <Text fontSize={16} fontWeight="700" color="$ink">
-                    {t('Business')}
-                  </Text>
-
-                  <XStack
-                    items="center"
-                    bg="#212121"
-                    p={2}
+                  {/* Primary CTA button: ✦ Get started */}
+                  <Anchor
+                    href={businessHref}
+                    onPress={() => handleBuy('team', 'Business', businessCycle === 'year' ? 200 : 20, businessCycle)}
+                    bg="#0070f3"
+                    hoverStyle={{ bg: '#0060df' }}
                     rounded="$10"
-                    gap={1}
+                    width="100%"
+                    py="$3"
+                    my="$1"
+                    color="#ffffff"
+                    fontWeight="600"
+                    fontSize={14}
+                    text="center"
+                    textDecorationLine="none"
+                    items="center"
+                    justify="center"
+                    gap="$2"
+                  >
+                    <Sparkles size={16} color="#ffffff" aria-hidden />
+                    {t('Get started')}
+                  </Anchor>
+
+                  {/* In-card seat types comparison row */}
+                  <YStack
+                    bg="rgba(0, 0, 0, 0.4)"
                     borderWidth={1}
                     borderColor="rgba(255, 255, 255, 0.08)"
+                    rounded="$4"
+                    p="$3"
+                    gap="$2"
                   >
-                    <Box
-                      render="button"
-                      onClick={() => setBusinessCycle('year')}
-                      bg={businessCycle === 'year' ? '#343434' : 'transparent'}
-                      px="$2.5"
-                      py="$1"
-                      rounded="$10"
-                      borderWidth={0}
-                      cursor="pointer"
-                    >
-                      <Text
-                        fontSize={11}
-                        fontWeight={businessCycle === 'year' ? '600' : '400'}
-                        color={businessCycle === 'year' ? '#ffffff' : '#8e8e8e'}
-                      >
-                        {t('Annual')}
+                    <YStack gap="$0.5">
+                      <XStack justify="space-between" items="center">
+                        <Text fontSize={13} fontWeight="600" color="$ink">
+                          {t('Standard seat')}
+                        </Text>
+                        <Text fontSize={13} fontWeight="600" color="$ink">
+                          {businessCycle === 'year' ? '$16.67 / month' : '$20 / month'}
+                        </Text>
+                      </XStack>
+                      <Text fontSize={11} color="#8e8e8e">
+                        {t('Best for everyday work')}
                       </Text>
-                    </Box>
-                    <Box
-                      render="button"
-                      onClick={() => setBusinessCycle('month')}
-                      bg={businessCycle === 'month' ? '#343434' : 'transparent'}
-                      px="$2.5"
-                      py="$1"
-                      rounded="$10"
-                      borderWidth={0}
-                      cursor="pointer"
-                    >
-                      <Text
-                        fontSize={11}
-                        fontWeight={businessCycle === 'month' ? '600' : '400'}
-                        color={businessCycle === 'month' ? '#ffffff' : '#8e8e8e'}
-                      >
-                        {t('Monthly')}
-                      </Text>
-                    </Box>
-                  </XStack>
-                </XStack>
+                    </YStack>
 
-                <YStack gap="$1">
-                  <Text fontSize={24} fontWeight="700" color="$ink">
-                    {t('For growing teams')}
-                  </Text>
-                  <Text fontSize={14} color="var(--soft, #a1a1aa)">
-                    {t('A secure workspace with company context')}
-                  </Text>
-                </YStack>
+                    <Box height={1} bg="rgba(255, 255, 255, 0.06)" />
 
-                {/* Primary CTA button: ✦ Get started */}
-                <Anchor
-                  href={businessHref}
-                  onPress={() => handleBuy('team', 'Business', businessCycle === 'year' ? 200 : 20, businessCycle)}
-                  bg="#0070f3"
-                  hoverStyle={{ bg: '#0060df' }}
-                  rounded="$10"
-                  width="100%"
-                  py="$3"
-                  my="$1"
-                  color="#ffffff"
-                  fontWeight="600"
-                  fontSize={14}
-                  text="center"
-                  textDecorationLine="none"
-                  items="center"
-                  justify="center"
-                  gap="$2"
-                >
-                  <Sparkles size={16} color="#ffffff" aria-hidden />
-                  {t('Get started')}
-                </Anchor>
-
-                {/* In-card seat types comparison row */}
-                <YStack
-                  bg="rgba(0, 0, 0, 0.4)"
-                  borderWidth={1}
-                  borderColor="rgba(255, 255, 255, 0.08)"
-                  rounded="$4"
-                  p="$3"
-                  gap="$2"
-                >
-                  <YStack gap="$0.5">
-                    <XStack justify="space-between" items="center">
-                      <Text fontSize={13} fontWeight="600" color="$ink">
-                        {t('Standard seat')}
+                    <YStack gap="$0.5">
+                      <XStack justify="space-between" items="center">
+                        <Text fontSize={13} fontWeight="600" color="$ink">
+                          {t('Premium seat')}
+                        </Text>
+                        <Text fontSize={13} fontWeight="600" color="$ink">
+                          {businessCycle === 'year' ? '$83.33 / month' : '$100 / month'}
+                        </Text>
+                      </XStack>
+                      <Text fontSize={11} color="#8e8e8e">
+                        {t('More usage, no 5-hour limit')}
                       </Text>
-                      <Text fontSize={13} fontWeight="600" color="$ink">
-                        {businessCycle === 'year' ? '$16.67 / month' : '$20 / month'}
-                      </Text>
-                    </XStack>
-                    <Text fontSize={11} color="#8e8e8e">
-                      {t('Best for everyday work')}
-                    </Text>
+                    </YStack>
                   </YStack>
 
-                  <Box height={1} bg="rgba(255, 255, 255, 0.06)" />
-
-                  <YStack gap="$0.5">
-                    <XStack justify="space-between" items="center">
-                      <Text fontSize={13} fontWeight="600" color="$ink">
-                        {t('Premium seat')}
-                      </Text>
-                      <Text fontSize={13} fontWeight="600" color="$ink">
-                        {businessCycle === 'year' ? '$83.33 / month' : '$100 / month'}
-                      </Text>
-                    </XStack>
-                    <Text fontSize={11} color="#8e8e8e">
-                      {t('More usage, no 5-hour limit')}
-                    </Text>
+                  {/* Business features list with prominent blue icons */}
+                  <YStack gap="$2.5" pt="$1">
+                    {[
+                      [Workflow, t('Shared tasks — so your team can do more by delegating busy work')],
+                      [Users, t('Hanzo Space to collaborate with your team and AI')],
+                      [ShieldCheck, t('Secure workspace with SAML, SSO, and MFA')],
+                      [Link2, t('Connections for Google Workspace, Slack, GitHub, Microsoft 365, and more')],
+                      [BarChart2, t('Usage analytics and spend controls')],
+                      [Layers, t('Centralized billing and administration')],
+                      [Lock, t('No model training on your business data by default')],
+                      [Sliders, t('Mix and match seat types')],
+                    ].map(([Icon, label], idx) => (
+                      <XStack key={idx} items="flex-start" gap="$2.5">
+                        <Box pt={2}>
+                          <Icon size={16} color="#388bfd" aria-hidden />
+                        </Box>
+                        <Text fontSize={13} color="$ink" lineHeight={18}>
+                          {label}
+                        </Text>
+                      </XStack>
+                    ))}
                   </YStack>
-                </YStack>
-
-                {/* Business features list with prominent blue icons */}
-                <YStack gap="$2.5" pt="$1">
-                  {[
-                    [Workflow, t('Shared tasks — so your team can do more by delegating busy work')],
-                    [Users, t('Hanzo Space to collaborate with your team and AI')],
-                    [ShieldCheck, t('Secure workspace with SAML, SSO, and MFA')],
-                    [Link2, t('Connections for Google Workspace, Slack, GitHub, Microsoft 365, and more')],
-                    [BarChart2, t('Usage analytics and spend controls')],
-                    [Layers, t('Centralized billing and administration')],
-                    [Lock, t('No model training on your business data by default')],
-                    [Sliders, t('Mix and match seat types')],
-                  ].map(([Icon, label], idx) => (
-                    <XStack key={idx} items="flex-start" gap="$2.5">
-                      <Box pt={2}>
-                        <Icon size={16} color="#388bfd" aria-hidden />
-                      </Box>
-                      <Text fontSize={13} color="$ink" lineHeight={18}>
-                        {label}
-                      </Text>
-                    </XStack>
-                  ))}
                 </YStack>
               </YStack>
-            </YStack>
-          </Box>
+            </Box>
+
+            {/* Business Enterprise notice at the bottom of Business tab */}
+            <XStack justify="center" items="center" gap="$1.5" pt="$2">
+              <Text fontSize={13} color="#8e8e8e">
+                {t('Need more capabilities for your business?')}
+              </Text>
+              <Anchor
+                href={site('/contact-sales')}
+                fontSize={13}
+                fontWeight="600"
+                color="#388bfd"
+                hoverStyle={{ textDecorationLine: 'underline' }}
+              >
+                {t('See Hanzo Enterprise')}
+              </Anchor>
+            </XStack>
+          </YStack>
         )}
 
         {/* Footer links */}
-        <XStack justify="center" items="center" gap="$5" pt="$3">
+        <XStack justify="center" items="center" gap="$5" pt="$2">
           <Anchor
             href={site('/pricing')}
             fontSize={13}
             color="var(--soft, #a1a1aa)"
             hoverStyle={{ color: '$ink' }}
           >
-            {t('See all plans & enterprise')}
+            {t('See all plans & pricing table')}
           </Anchor>
           <Box
             render="button"
