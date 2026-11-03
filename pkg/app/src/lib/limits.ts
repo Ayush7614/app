@@ -74,7 +74,7 @@ const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{
  * locale, set apart in right-to-left prose), in `zone`, the browser's own unless
  * a caller names one.
  */
-export function resets(iso: string | null, now: number, f: Format, zone?: string): { date: string; time: string | null } | null {
+export function resets(iso: string | null, now: number, f: Format, zone: string = 'UTC'): { date: string; time: string | null } | null {
   const at = iso && INSTANT.test(iso) ? Date.parse(iso) : NaN
   if (!(at > now)) return null
   const midnight = new Intl.DateTimeFormat('en-US', { timeZone: zone, hourCycle: 'h23', hour: '2-digit', minute: '2-digit' }).format(at) === '00:00'
