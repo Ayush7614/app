@@ -391,7 +391,7 @@ type Call = (path: string, body: unknown, ms: number) => Promise<any>
 
 /** When a lookup ran, in the reader's own clock. */
 function stamp(now: Date): string {
-  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone
+  const zone = 'UTC'
   const part = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat('en-GB', { ...o, timeZone: zone }).format(now)
   const name = new Intl.DateTimeFormat('en-GB', { timeZone: zone, timeZoneName: 'short' }).formatToParts(now).find((p) => p.type === 'timeZoneName')?.value ?? zone
   return `${part({ weekday: 'long' })} ${part({ day: 'numeric' })} ${part({ month: 'long' })} ${part({ year: 'numeric' })}, ${part({ hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })} ${name}`
